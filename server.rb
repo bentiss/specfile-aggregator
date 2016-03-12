@@ -28,16 +28,18 @@ end
 
 if !File.exist?(upstream_db_filename)
 	File.open(upstream_db_filename, "w") { |file|
-		file.puts("# this file contains keys/values of specfile repos and matching upstream repositories")
+		file.puts("# this file contains keys/values of upstream repos and matching specfile repositories")
 		file.puts("#")
 		file.puts("# example:")
-		file.puts("# libratbag-spec = https://github.com/libratbag/libratbag.git")
+		file.puts("# [copr project name]")
+		file.puts("# libratbag = https://github.com/bentiss/libratbag-spec.git")
 	}
 end
 
 token = File.read(token_filename).strip
 upstream_db = {}
 
+current_copr = nil
 File.readlines(upstream_db_filename).each do |line|
 	if /\w*#/.match(line)
 		next
@@ -45,10 +47,22 @@ File.readlines(upstream_db_filename).each do |line|
 	if /^\w*$/.match(line)
 		next
 	end
+	m = /\[(.*)\]/.match(line)
+	if m
+		current_copr = m[1]
+		if !upstream_db[current_copr]
+			upstream_db[current_copr] = {}
+		end
+		next
+	end
+	if !current_copr
+		puts("error in database '#{upstream_db_filename}'")
+		exit 1
+	end
 	repo, upstream = line.split('=', 2)
 	repo.strip!
-	upstream_db[repo] = upstream.strip
-	puts "repo #{repo} matches upstream #{upstream_db[repo]}"
+	upstream_db[current_copr][repo] = upstream.strip
+	puts "repo #{repo} matches upstream #{upstream_db[current_copr][repo]} in project '#{current_copr}'"
 end
 
 configure do
@@ -63,7 +77,7 @@ post '/payload' do
   repo = jdata['repository']['name']
 #  url = jdata['repository']['ssh_url']
   url = jdata['repository']['url']
-  return halt 500, "Unknown repository. Please update #{upstream_db_filename}" unless upstream_db[repo]
+  copr = get_copr(repo)
   puts "Received a push notification for: #{repo}"
   sync_repo(repo, url)
   update_tar_gz(repo)
@@ -76,6 +90,20 @@ end
 def verify_signature(payload_body, token)
   signature = 'sha1=' + OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new('sha1'), token, payload_body)
   return halt 500, "Signatures didn't match!" unless Rack::Utils.secure_compare(signature, request.env['HTTP_X_HUB_SIGNATURE'])
+end
+
+def get_copr(repo)
+  upstream_db.each do |copr, entries|
+    if entries[repo]
+      return copr
+    end
+    entries.each do |upstream, specfile|
+      if /#{repo}[\.git]*$/.match(specfile)
+        return copr
+      end
+    end
+  end
+  return halt 500, "Unknown repository. Please update #{upstream_db_filename}"
 end
 
 def get_key()
