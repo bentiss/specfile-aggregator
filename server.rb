@@ -64,7 +64,15 @@ def clone(key, name, url)
   `git branch --set-upstream-to=origin/master copr`
   `git annex init`
   `tito init`
+  tito_switch_to_git_annex()
   Dir.chdir(curdir)
+end
+
+def tito_switch_to_git_annex()
+  text = File.read(".tito/tito.props")
+  new_contents = text.gsub(/tito\.builder\.Builder/, "tito.builder.GitAnnexBuilder")
+  File.open(".tito/tito.props", "w") {|file| file.puts new_contents }
+  `git commit -a -m "switch tito to use git annex"`
 end
 
 def pull(key, name)
