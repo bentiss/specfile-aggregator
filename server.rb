@@ -158,6 +158,8 @@ def tito_fill_releaser(copr)
     file.puts("releaser = tito.release.CoprReleaser")
     file.puts("project_name = #{copr}")
   }
+  `git add .tito/releasers.conf`
+  `git commit -m "fill in tito releasers"`
 end
 
 def pull(key, name)
