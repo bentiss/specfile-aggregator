@@ -24,6 +24,8 @@ post '/payload' do
   puts "Received a push notification for: #{repo}"
   sync_repo(repo, url)
   update_tar_gz(repo)
+  puts "Updated #{repo}"
+  return halt 200, "Updated #{repo}"
 end
 
 def verify_signature(payload_body, token)
