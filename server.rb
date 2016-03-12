@@ -42,6 +42,9 @@ File.readlines(upstream_db_filename).each do |line|
 	if /\w*#/.match(line)
 		next
 	end
+	if /^\w*$/.match(line)
+		next
+	end
 	repo, upstream = line.split('=', 2)
 	repo.strip!
 	upstream_db[repo] = upstream.strip
