@@ -106,7 +106,7 @@ def get_copr(repo, upstream_db)
   return halt 500, "Unknown repository. Please update #{upstream_db_filename}"
 end
 
-def get_key()
+def get_key(name)
   key = "#{Dir.pwd}/keys/id_rsa"
   if !File.exist?(key)
     puts "generating a key in #{key}"
@@ -120,7 +120,7 @@ def get_key()
 end
 
 def sync_repo(name, url)
-  key = get_key()
+  key = get_key(name)
   if !File.exist?(name)
     clone(key, name, url)
   end
@@ -155,7 +155,7 @@ def pull(key, name)
 end
 
 def push(name)
-  key = get_key()
+  key = get_key(name)
   curdir = Dir.pwd
   Dir.chdir(name)
   `ssh-agent bash -c 'ssh-add #{key} ; git push origin copr'`
