@@ -6,10 +6,7 @@ A server to update a tito repository based on a specfile repo.
 Run with:
 ---------
 
-    export SECRET_TOKEN='xxxxxxxxxxxxxxxxxxx'
     ruby server.rb
 
-To generate a secret token:
----------------------------
+The server will generate a secret token and store it in 'token'.
 
-ruby -rsecurerandom -e 'puts SecureRandom.hex(20)
