@@ -77,7 +77,7 @@ post '/payload' do
   repo = jdata['repository']['name']
 #  url = jdata['repository']['ssh_url']
   url = jdata['repository']['url']
-  copr = get_copr(repo)
+  copr = get_copr(repo, upstream_db)
   puts "Received a push notification for: #{repo}"
   sync_repo(repo, url)
   update_tar_gz(repo)
@@ -92,7 +92,7 @@ def verify_signature(payload_body, token)
   return halt 500, "Signatures didn't match!" unless Rack::Utils.secure_compare(signature, request.env['HTTP_X_HUB_SIGNATURE'])
 end
 
-def get_copr(repo)
+def get_copr(repo, upstream_db)
   upstream_db.each do |copr, entries|
     if entries[repo]
       return copr
