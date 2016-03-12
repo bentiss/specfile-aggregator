@@ -24,6 +24,7 @@ post '/payload' do
   puts "Received a push notification for: #{repo}"
   sync_repo(repo, url)
   update_tar_gz(repo)
+  tag_tree(repo)
   puts "Updated #{repo}"
   return halt 200, "Updated #{repo}"
 end
@@ -62,6 +63,7 @@ def clone(key, name, url)
   `git checkout -b copr`
   `git branch --set-upstream-to=origin/master copr`
   `git annex init`
+  `tito init`
   Dir.chdir(curdir)
 end
 
@@ -83,5 +85,12 @@ def update_tar_gz(name)
       `git commit -a -m "Add #{url}"`
     end
   end
+  Dir.chdir(curdir)
+end
+
+def tag_tree(name)
+  curdir = Dir.pwd
+  Dir.chdir(name)
+  return halt 200, "already tagged, skipping\n" unless system("tito tag --keep-version --no-auto-changelog")
   Dir.chdir(curdir)
 end
