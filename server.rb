@@ -2,13 +2,35 @@ require 'sinatra'
 require 'json'
 
 token_filename = "token"
+upstream_db_filename = "upstream_repo.txt"
 
 if !File.exist?(token_filename)
 	`ruby -rsecurerandom -e 'puts SecureRandom.hex(20)' > token`
 	puts "I just created a token with value: #{File.read(token_filename)}"
 end
 
+if !File.exist?(upstream_db_filename)
+	File.open(upstream_db_filename, "w") { |file|
+		file.puts("# this file contains keys/values of specfile repos and matching upstream repositories")
+		file.puts("#")
+		file.puts("# example:")
+		file.puts("# libratbag-spec = https://github.com/libratbag/libratbag.git")
+	}
+end
+
 token = File.read(token_filename).strip
+upstream_db = {}
+
+File.readlines(upstream_db_filename).each do |line|
+	if /\w*#/.match(line)
+		next
+	end
+	repo, upstream = line.split('=', 2)
+	repo.strip!
+	upstream_db[repo] = upstream.strip
+	puts "repo #{repo} matches upstream #{upstream_db[repo]}"
+end
+
 configure do
   set :bind, '0.0.0.0'
 end
@@ -21,6 +43,7 @@ post '/payload' do
   repo = jdata['repository']['name']
 #  url = jdata['repository']['ssh_url']
   url = jdata['repository']['url']
+  return halt 500, "Unknown repository. Please update #{upstream_db_filename}" unless upstream_db[repo]
   puts "Received a push notification for: #{repo}"
   sync_repo(repo, url)
   update_tar_gz(repo)
