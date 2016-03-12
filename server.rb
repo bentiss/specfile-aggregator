@@ -18,6 +18,8 @@
 require 'sinatra'
 require 'json'
 
+server_dir = Dir.pwd
+
 token_filename = "token"
 upstream_db_filename = "upstream_repo.txt"
 
@@ -70,6 +72,7 @@ configure do
 end
 
 post '/payload' do
+  Dir.chdir(server_dir)
   request.body.rewind
   payload_body = request.body.read
   verify_signature(payload_body, token)
