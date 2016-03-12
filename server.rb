@@ -25,6 +25,7 @@ post '/payload' do
   sync_repo(repo, url)
   update_tar_gz(repo)
   tag_tree(repo)
+#  push(repo)
   puts "Updated #{repo}"
   return halt 200, "Updated #{repo}"
 end
@@ -79,6 +80,14 @@ def pull(key, name)
   curdir = Dir.pwd
   Dir.chdir(name)
   `ssh-agent bash -c 'ssh-add #{key} ; git pull'`
+  Dir.chdir(curdir)
+end
+
+def push(name)
+  key = get_key()
+  curdir = Dir.pwd
+  Dir.chdir(name)
+  `ssh-agent bash -c 'ssh-add #{key} ; git push origin copr'`
   Dir.chdir(curdir)
 end
 
