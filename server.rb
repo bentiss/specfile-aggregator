@@ -82,10 +82,11 @@ post '/payload' do
   url = jdata['repository']['url']
   copr = get_copr(repo, upstream_db)
   puts "Received a push notification for: #{repo}"
-  sync_repo(repo, url)
+  sync_repo(repo, url, copr)
   update_tar_gz(repo)
   tag_tree(repo)
 #  push(repo)
+  release(repo, copr)
   puts "Updated #{repo}"
   return halt 200, "Updated #{repo}"
 end
@@ -122,15 +123,15 @@ def get_key(name)
   return key
 end
 
-def sync_repo(name, url)
+def sync_repo(name, url, copr)
   key = get_key(name)
   if !File.exist?(name)
-    clone(key, name, url)
+    clone(key, name, url, copr)
   end
   pull(key, name)
 end
 
-def clone(key, name, url)
+def clone(key, name, url, copr)
   curdir = Dir.pwd
   `ssh-agent bash -c 'ssh-add #{key} ; git clone #{url} #{name}'`
   return halt 500, "unable to clone #{name}, check the access rights.\nSsh key used: '#{File.read("#{key}.pub").strip}'\n" unless Dir.exist?(name)
@@ -140,6 +141,7 @@ def clone(key, name, url)
   `git annex init`
   `tito init`
   tito_switch_to_git_annex()
+  tito_fill_releaser(copr)
   Dir.chdir(curdir)
 end
 
@@ -148,6 +150,14 @@ def tito_switch_to_git_annex()
   new_contents = text.gsub(/tito\.builder\.Builder/, "tito.builder.GitAnnexBuilder")
   File.open(".tito/tito.props", "w") {|file| file.puts new_contents }
   `git commit -a -m "switch tito to use git annex"`
+end
+
+def tito_fill_releaser(copr)
+  File.open(".tito/releasers.conf", "w") { |file|
+    file.puts("[copr]")
+    file.puts("releaser = tito.release.CoprReleaser")
+    file.puts("project_name = #{copr}")
+  }
 end
 
 def pull(key, name)
@@ -183,5 +193,12 @@ def tag_tree(name)
   curdir = Dir.pwd
   Dir.chdir(name)
   return halt 200, "already tagged, skipping\n" unless system("tito tag --keep-version --no-auto-changelog")
+  Dir.chdir(curdir)
+end
+
+def release(name, copr)
+  curdir = Dir.pwd
+  Dir.chdir(name)
+  return halt 500, "Can't start the copr build of #{name} in #{copr}" unless system("tito release copr --offline")
   Dir.chdir(curdir)
 end
