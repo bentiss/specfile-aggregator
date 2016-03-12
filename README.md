@@ -10,3 +10,10 @@ Run with:
 
 The server will generate a secret token and store it in 'token'.
 
+Requirements:
+-------------
+
+- git
+- git annex
+- ruby
+- rubygems (with sinatra as a gem)

@@ -23,6 +23,7 @@ post '/payload' do
   url = jdata['repository']['url']
   puts "Received a push notification for: #{repo}"
   sync_repo(repo, url)
+  update_tar_gz(repo)
 end
 
 def verify_signature(payload_body, token)
@@ -58,6 +59,7 @@ def clone(key, name, url)
   Dir.chdir(name)
   `git checkout -b copr`
   `git branch --set-upstream-to=origin/master copr`
+  `git annex init`
   Dir.chdir(curdir)
 end
 
@@ -65,5 +67,19 @@ def pull(key, name)
   curdir = Dir.pwd
   Dir.chdir(name)
   `ssh-agent bash -c 'ssh-add #{key} ; git pull'`
+  Dir.chdir(curdir)
+end
+
+def update_tar_gz(name)
+  curdir = Dir.pwd
+  Dir.chdir(name)
+  `spectool -l *.spec`.split('\n').each do |source|
+    n, url = source.split()
+    if !File.exist?(File.basename(url))
+      puts "downloading #{url}"
+      `git annex addurl --file=#{File.basename(url)} #{url}`
+      `git commit -a -m "Add #{url}"`
+    end
+  end
   Dir.chdir(curdir)
 end
