@@ -17,8 +17,9 @@ post '/payload' do
   request.body.rewind
   payload_body = request.body.read
   verify_signature(payload_body, token)
-  push = JSON.parse(payload_body)
-  puts "I got some JSON: #{push.inspect}"
+  jdata = JSON.parse(payload_body)
+  repo = jdata['repository']['name']
+  puts "Received a push notification for: #{repo}"
 end
 
 def verify_signature(payload_body, token)
