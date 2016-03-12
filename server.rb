@@ -22,18 +22,18 @@ token_filename = "token"
 upstream_db_filename = "upstream_repo.txt"
 
 if !File.exist?(token_filename)
-	`ruby -rsecurerandom -e 'puts SecureRandom.hex(20)' > token`
-	puts "I just created a token with value: #{File.read(token_filename)}"
+  `ruby -rsecurerandom -e 'puts SecureRandom.hex(20)' > token`
+  puts "I just created a token with value: #{File.read(token_filename)}"
 end
 
 if !File.exist?(upstream_db_filename)
-	File.open(upstream_db_filename, "w") { |file|
-		file.puts("# this file contains keys/values of upstream repos and matching specfile repositories")
-		file.puts("#")
-		file.puts("# example:")
-		file.puts("# [copr project name]")
-		file.puts("# libratbag = https://github.com/bentiss/libratbag-spec.git")
-	}
+  File.open(upstream_db_filename, "w") { |file|
+    file.puts("# this file contains keys/values of upstream repos and matching specfile repositories")
+    file.puts("#")
+    file.puts("# example:")
+    file.puts("# [copr project name]")
+    file.puts("# libratbag = https://github.com/bentiss/libratbag-spec.git")
+  }
 end
 
 token = File.read(token_filename).strip
@@ -41,28 +41,28 @@ upstream_db = {}
 
 current_copr = nil
 File.readlines(upstream_db_filename).each do |line|
-	if /\w*#/.match(line)
-		next
-	end
-	if /^\w*$/.match(line)
-		next
-	end
-	m = /\[(.*)\]/.match(line)
-	if m
-		current_copr = m[1]
-		if !upstream_db[current_copr]
-			upstream_db[current_copr] = {}
-		end
-		next
-	end
-	if !current_copr
-		puts("error in database '#{upstream_db_filename}'")
-		exit 1
-	end
-	repo, upstream = line.split('=', 2)
-	repo.strip!
-	upstream_db[current_copr][repo] = upstream.strip
-	puts "repo #{repo} matches upstream #{upstream_db[current_copr][repo]} in project '#{current_copr}'"
+  if /\w*#/.match(line)
+    next
+  end
+  if /^\w*$/.match(line)
+    next
+  end
+  m = /\[(.*)\]/.match(line)
+  if m
+    current_copr = m[1]
+    if !upstream_db[current_copr]
+      upstream_db[current_copr] = {}
+    end
+    next
+  end
+  if !current_copr
+    puts("error in database '#{upstream_db_filename}'")
+    exit 1
+  end
+  repo, upstream = line.split('=', 2)
+  repo.strip!
+  upstream_db[current_copr][repo] = upstream.strip
+  puts "repo #{repo} matches upstream #{upstream_db[current_copr][repo]} in project '#{current_copr}'"
 end
 
 configure do
