@@ -196,7 +196,8 @@ def tag_tree(name)
   Dir.chdir(name)
   return halt 200, "already tagged, skipping\n" unless system("tito tag --keep-version --no-auto-changelog")
   # fix the messed up changelog entry
-  `git show HEAD~1:libratbag.spec > libratbag.spec`
+  specfile = Dir["*.spec"][0]
+  `git show HEAD~1:#{specfile} > #{specfile}`
   `git commit -a -m "fix the messed up tito changelog entry"`
   Dir.chdir(curdir)
 end
