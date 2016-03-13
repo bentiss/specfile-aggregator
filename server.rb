@@ -79,7 +79,7 @@ post '/payload' do
   jdata = JSON.parse(payload_body)
   repo = jdata['repository']['name']
 #  url = jdata['repository']['ssh_url']
-  url = jdata['repository']['url']
+  url = jdata['repository']['html_url']
   copr = get_copr(repo, upstream_db)
   puts "Received a push notification for: #{repo}"
   sync_repo(repo, url, copr)
