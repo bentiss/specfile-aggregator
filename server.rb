@@ -28,44 +28,52 @@ if !File.exist?(token_filename)
   puts "I just created a token with value: #{File.read(token_filename)}"
 end
 
-if !File.exist?(upstream_db_filename)
-  File.open(upstream_db_filename, "w") { |file|
-    file.puts("# this file contains keys/values of upstream repos and matching specfile repositories")
-    file.puts("#")
-    file.puts("# example:")
-    file.puts("# [copr project name]")
-    file.puts("# libratbag = https://github.com/bentiss/libratbag-spec.git")
-  }
-end
-
 token = File.read(token_filename).strip
-upstream_db = {}
 
-current_copr = nil
-File.readlines(upstream_db_filename).each do |line|
-  if /\w*#/.match(line)
-    next
+def load_db(path)
+  if !File.exist?(path)
+    File.open(path, "w") { |file|
+      file.puts("# this file contains keys/values of upstream repos and matching specfile repositories")
+      file.puts("#")
+      file.puts("# example:")
+      file.puts("# [copr project name]")
+      file.puts("# libratbag = https://github.com/bentiss/libratbag-spec.git")
+    }
   end
-  if /^\w*$/.match(line)
-    next
-  end
-  m = /\[(.*)\]/.match(line)
-  if m
-    current_copr = m[1]
-    if !upstream_db[current_copr]
-      upstream_db[current_copr] = {}
+
+  upstream_db = {}
+
+  current_copr = nil
+  File.readlines(path).each do |line|
+    if /\w*#/.match(line)
+      next
     end
-    next
+    if /^\w*$/.match(line)
+      next
+    end
+    m = /\[(.*)\]/.match(line)
+    if m
+      current_copr = m[1]
+      if !upstream_db[current_copr]
+        upstream_db[current_copr] = {}
+      end
+      next
+    end
+    if !current_copr
+      puts("error in database '#{path}'")
+      exit 1
+    end
+    repo, upstream = line.split('=', 2)
+    repo.strip!
+    upstream_db[current_copr][repo] = upstream.strip
+    puts "repo #{repo} matches upstream #{upstream_db[current_copr][repo]} in project '#{current_copr}'"
   end
-  if !current_copr
-    puts("error in database '#{upstream_db_filename}'")
-    exit 1
-  end
-  repo, upstream = line.split('=', 2)
-  repo.strip!
-  upstream_db[current_copr][repo] = upstream.strip
-  puts "repo #{repo} matches upstream #{upstream_db[current_copr][repo]} in project '#{current_copr}'"
+
+  return upstream_db
 end
+
+# make sure the db file is OK
+load_db(upstream_db_filename)
 
 configure do
   set :bind, '0.0.0.0'
@@ -76,7 +84,7 @@ get "/#{token}" do
   repo = "libratbag-spec"
   url = "https://github.com/bentiss/libratbag-spec.git"
   puts "Received a push notification for: #{repo}"
-  copr = get_copr(repo, upstream_db)
+  copr = get_copr(repo, upstream_db_filename)
   sync_repo(repo, url, copr)
   update_tar_gz(repo)
   tag_tree(repo)
@@ -94,7 +102,7 @@ post '/payload' do
   repo = jdata['repository']['name']
 #  url = jdata['repository']['ssh_url']
   url = jdata['repository']['html_url']
-  copr = get_copr(repo, upstream_db)
+  copr = get_copr(repo, upstream_db_filename)
   puts "Received a push notification for: #{repo}"
   sync_repo(repo, url, copr)
   update_tar_gz(repo)
@@ -110,7 +118,8 @@ def verify_signature(payload_body, token)
   return halt 500, "Signatures didn't match!" unless Rack::Utils.secure_compare(signature, request.env['HTTP_X_HUB_SIGNATURE'])
 end
 
-def get_copr(repo, upstream_db)
+def get_copr(repo, db_filename)
+  upstream_db = load_db(db_filename)
   upstream_db.each do |copr, entries|
     if entries[repo]
       return copr
@@ -121,7 +130,7 @@ def get_copr(repo, upstream_db)
       end
     end
   end
-  return halt 500, "Unknown repository. Please update #{upstream_db_filename}"
+  return halt 500, "Unknown repository. Please update #{db_filename}"
 end
 
 def get_key(name)
