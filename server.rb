@@ -39,12 +39,12 @@ def load_db(path)
 # example:
 # [repository name of a specfile tree]
 # url = git.clone.address
-# copr = copr_project_name, separated by commas
+# copr = copr_project_name
 #
 # [upstream repository name (for continuous packages)]
 # url = git.clone.address
 # spec = https://address.of.the.spec.git.tree
-# copr = copr_project_names, separated by commas
+# copr = copr_project_name
 
 [libratbag-spec]
 url = https://github.com/bentiss/libratbag-spec.git
