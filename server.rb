@@ -47,22 +47,22 @@ def load_db(path)
 # copr = copr_project_name
 
 [libratbag-spec]
-url = https://github.com/bentiss/libratbag-spec.git
+url = https://github.com/bentiss/libratbag-spec
 copr = libratbag-sandbox
 
 [libratbag]
-url = https://github.com/libratbag/libratbag.git
-spec = https://github.com/bentiss/libratbag-spec.git
-copr = libratbag-nightly
+url = https://github.com/libratbag/libratbag
+spec = https://github.com/bentiss/libratbag-spec
+copr = libratbag-continuous
 
 [ratbagd-spec]
-url = https://github.com/bentiss/ratbagd-spec.git
+url = https://github.com/bentiss/ratbagd-spec
 copr = libratbag-sandbox
 
 [ratbagd]
-url = https://github.com/libratbag/ratbagd.git
-spec = https://github.com/bentiss/ratbagd-spec.git
-copr = libratbag-nightly
+url = https://github.com/libratbag/ratbagd
+spec = https://github.com/bentiss/ratbagd-spec
+copr = libratbag-continuous
 }
     }
   end
