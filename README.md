@@ -14,6 +14,10 @@ Requirements:
 -------------
 
 - tito
+- copr-cli
 - git
 - ruby
 - rubygems (with sinatra as a gem)
+
+You also need to set up your copr-cli token in ~/.config/copr, see
+https://copr.fedorainfracloud.org/api/
