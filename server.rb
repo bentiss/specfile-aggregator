@@ -123,9 +123,14 @@ end
 get "/#{token}" do
   Dir.chdir(server_dir)
   repo = "libratbag-spec"
-  url = "https://github.com/bentiss/libratbag-spec.git"
+  html_url = "https://github.com/bentiss/libratbag-spec.git"
   puts "Received a push notification for: #{repo}"
-  copr = get_copr(repo, upstream_db_filename)
+  project = get_db_entry(repo, upstream_db_filename)
+  copr = project['copr']
+  url = project['url']
+  if url != html_url
+    return halt 500, "Project '#{html_url}' is not valid"
+  end
   sync_repo(repo, url, copr)
   update_tar_gz(repo)
   tag_tree(repo)
@@ -141,9 +146,14 @@ post '/payload' do
   verify_signature(payload_body, token)
   jdata = JSON.parse(payload_body)
   repo = jdata['repository']['name']
-#  url = jdata['repository']['ssh_url']
-  url = jdata['repository']['html_url']
-  copr = get_copr(repo, upstream_db_filename)
+  html_url = jdata['repository']['ssh_url']
+  ssh_url = jdata['repository']['html_url']
+  project = get_db_entry(repo, upstream_db_filename)
+  copr = project['copr']
+  url = project['url']
+  if url != html_url && url != ssh_url
+    return halt 500, "Project '#{html_url}' is not valid"
+  end
   puts "Received a push notification for: #{repo}"
   sync_repo(repo, url, copr)
   update_tar_gz(repo)
@@ -159,12 +169,10 @@ def verify_signature(payload_body, token)
   return halt 500, "Signatures didn't match!" unless Rack::Utils.secure_compare(signature, request.env['HTTP_X_HUB_SIGNATURE'])
 end
 
-def get_copr(repo, db_filename)
+def get_db_entry(repo, db_filename)
   projects = load_db(db_filename)
-  if projects[repo]
-      return projects[repo]["copr"]
-  end
-  return halt 500, "Unknown repository. Please update #{db_filename}"
+  return halt 500, "Unknown repository. Please update #{db_filename}" unless projects[repo]
+  return projects[repo]
 end
 
 def get_key(name)
