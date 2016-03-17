@@ -21,7 +21,7 @@ require 'json'
 server_dir = Dir.pwd
 
 token_filename = "token"
-upstream_db_filename = "upstream_repo.txt"
+upstream_db_filename = "repos.txt"
 
 if !File.exist?(token_filename)
   `ruby -rsecurerandom -e 'puts SecureRandom.hex(20)' > token`
@@ -33,43 +33,84 @@ token = File.read(token_filename).strip
 def load_db(path)
   if !File.exist?(path)
     File.open(path, "w") { |file|
-      file.puts("# this file contains keys/values of upstream repos and matching specfile repositories")
-      file.puts("#")
-      file.puts("# example:")
-      file.puts("# [copr project name]")
-      file.puts("# libratbag = https://github.com/bentiss/libratbag-spec.git")
+      file << %q{#
+# this file contains the list of supported repos by specfile-aggregator
+#
+# example:
+# [repository name of a specfile tree]
+# url = git.clone.address
+# copr = copr_project_name, separated by commas
+#
+# [upstream repository name (for continuous packages)]
+# url = git.clone.address
+# spec = https://address.of.the.spec.git.tree
+# copr = copr_project_names, separated by commas
+
+[libratbag-spec]
+url = https://github.com/bentiss/libratbag-spec.git
+copr = libratbag-sandbox
+
+[libratbag]
+url = https://github.com/libratbag/libratbag.git
+spec = https://github.com/bentiss/libratbag-spec.git
+copr = libratbag-nightly
+
+[ratbagd-spec]
+url = https://github.com/bentiss/ratbagd-spec.git
+copr = libratbag-sandbox
+
+[ratbagd]
+url = https://github.com/libratbag/ratbagd.git
+spec = https://github.com/bentiss/ratbagd-spec.git
+copr = libratbag-nightly
+}
     }
   end
 
-  upstream_db = {}
+  projects = {}
 
-  current_copr = nil
+  current_project = nil
   File.readlines(path).each do |line|
+    # comments
     if /\w*#/.match(line)
       next
     end
+    # empty lines
     if /^\w*$/.match(line)
       next
     end
+
+    # tags
     m = /\[(.*)\]/.match(line)
     if m
-      current_copr = m[1]
-      if !upstream_db[current_copr]
-        upstream_db[current_copr] = {}
+      project = m[1]
+      if projects[project]
+        puts("duplicate entry '#{project}', skipping")
+        current_project = nil
       end
+      projects[project] = {}
+      projects[project]["url"] = ""
+      projects[project]["copr"] = ""
+      projects[project]["spec"] = ""
+      current_project = project
       next
     end
-    if !current_copr
-      puts("error in database '#{path}'")
-      exit 1
+    if current_project == nil
+      next
     end
-    repo, upstream = line.split('=', 2)
-    repo.strip!
-    upstream_db[current_copr][repo] = upstream.strip
-    puts "repo #{repo} matches upstream #{upstream_db[current_copr][repo]} in project '#{current_copr}'"
+    key, values = line.split('=', 2)
+    key.strip!
+    if !projects[current_project][key]
+      puts("ignoring unsupported tag '#{key}'.")
+      next
+    end
+    projects[current_project][key] = values.strip
+    if key == "copr"
+      puts "repo #{current_project} will build in projects '#{projects[current_project]["copr"]}'"
+    end
   end
 
-  return upstream_db
+  return projects
 end
 
 # make sure the db file is OK
@@ -119,16 +160,9 @@ def verify_signature(payload_body, token)
 end
 
 def get_copr(repo, db_filename)
-  upstream_db = load_db(db_filename)
-  upstream_db.each do |copr, entries|
-    if entries[repo]
-      return copr
-    end
-    entries.each do |upstream, specfile|
-      if /#{repo}[\.git]*$/.match(specfile)
-        return copr
-      end
-    end
+  projects = load_db(db_filename)
+  if projects[repo]
+      return projects[repo]["copr"]
   end
   return halt 500, "Unknown repository. Please update #{db_filename}"
 end
