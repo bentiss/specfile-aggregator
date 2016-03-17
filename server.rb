@@ -131,7 +131,7 @@ get "/#{token}" do
   if url != html_url
     return halt 500, "Project '#{html_url}' is not valid"
   end
-  sync_repo(repo, url, copr)
+  sync_repo(repo, project)
   update_tar_gz(repo)
   tag_tree(repo)
   release(repo, copr, "--dry-run")
@@ -155,7 +155,7 @@ post '/payload' do
     return halt 500, "Project '#{html_url}' is not valid"
   end
   puts "Received a push notification for: #{repo}"
-  sync_repo(repo, url, copr)
+  sync_repo(repo, project)
   update_tar_gz(repo)
   tag_tree(repo)
 #  push(repo)
@@ -188,10 +188,10 @@ def get_key(name)
   return key
 end
 
-def sync_repo(name, url, copr)
+def sync_repo(name, project)
   key = get_key(name)
   if !File.exist?(name)
-    clone(key, name, url, copr)
+    clone(key, name, project)
   end
   pull(key, name)
 end
@@ -200,16 +200,16 @@ def is_spec_tree(name)
   return Dir["#{name}/*.spec"] != []
 end
 
-def clone(key, name, url, copr)
+def clone(key, name, project)
   curdir = Dir.pwd
-  `ssh-agent bash -c 'ssh-add #{key} ; git clone #{url} #{name}'`
+  `ssh-agent bash -c 'ssh-add #{key} ; git clone #{project['url']} #{name}'`
   return halt 500, "unable to clone #{name}, check the access rights.\nSsh key used: '#{File.read("#{key}.pub").strip}'\n" unless Dir.exist?(name)
   if is_spec_tree(name)
     Dir.chdir(name)
     `git checkout -b copr`
     `git branch --set-upstream-to=origin/master copr`
     `tito init`
-    tito_fill_releaser(copr)
+    tito_fill_releaser(project['copr'])
     Dir.chdir(curdir)
   end
 end
