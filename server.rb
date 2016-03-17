@@ -196,16 +196,22 @@ def sync_repo(name, url, copr)
   pull(key, name)
 end
 
+def is_spec_tree(name)
+  return Dir["#{name}/*.spec"] != []
+end
+
 def clone(key, name, url, copr)
   curdir = Dir.pwd
   `ssh-agent bash -c 'ssh-add #{key} ; git clone #{url} #{name}'`
   return halt 500, "unable to clone #{name}, check the access rights.\nSsh key used: '#{File.read("#{key}.pub").strip}'\n" unless Dir.exist?(name)
-  Dir.chdir(name)
-  `git checkout -b copr`
-  `git branch --set-upstream-to=origin/master copr`
-  `tito init`
-  tito_fill_releaser(copr)
-  Dir.chdir(curdir)
+  if is_spec_tree(name)
+    Dir.chdir(name)
+    `git checkout -b copr`
+    `git branch --set-upstream-to=origin/master copr`
+    `tito init`
+    tito_fill_releaser(copr)
+    Dir.chdir(curdir)
+  end
 end
 
 def tito_fill_releaser(copr)
