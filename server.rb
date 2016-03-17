@@ -132,7 +132,7 @@ get "/#{token}/:name" do
   tag_tree(repo)
   release(repo, copr, "--dry-run")
   puts "Updated #{repo}"
-  return halt 200, "Updated #{repo}"
+  return halt 201, "Updated #{repo}"
 end
 
 post '/payload' do
@@ -157,7 +157,17 @@ post '/payload' do
 #  push(repo)
   release(repo, copr, "")
   puts "Updated #{repo}"
-  return halt 200, "Updated #{repo}"
+  return halt 201, "Updated #{repo}"
+end
+
+error 200..206 do
+  Dir.chdir(server_dir)
+  env['sinatra.body']
+end
+
+error 500..511 do
+  Dir.chdir(server_dir)
+  env['sinatra.body']
 end
 
 def verify_signature(payload_body, token)
@@ -318,7 +328,7 @@ def tag_tree(name)
     # Write back the changes
     File.open(specfile, "w") {|file| file.puts new_content }
   end
-  return halt 200, "already tagged, skipping\n" unless system("tito tag --keep-version --no-auto-changelog")
+  return halt 204, "already tagged, skipping\n" unless system("tito tag --keep-version --no-auto-changelog")
   # revert any specfile changes
   specfile = Dir["*.spec"][0]
   `git show HEAD~1:#{specfile} > #{specfile}`
