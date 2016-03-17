@@ -71,6 +71,20 @@ configure do
   set :bind, '0.0.0.0'
 end
 
+get "/#{token}" do
+  Dir.chdir(server_dir)
+  repo = "libratbag-spec"
+  url = "https://github.com/bentiss/libratbag-spec.git"
+  puts "Received a push notification for: #{repo}"
+  copr = get_copr(repo, upstream_db)
+  sync_repo(repo, url, copr)
+  update_tar_gz(repo)
+  tag_tree(repo)
+  release(repo, copr, "--dry-run")
+  puts "Updated #{repo}"
+  return halt 200, "Updated #{repo}"
+end
+
 post '/payload' do
   Dir.chdir(server_dir)
   request.body.rewind
@@ -86,7 +100,7 @@ post '/payload' do
   update_tar_gz(repo)
   tag_tree(repo)
 #  push(repo)
-  release(repo, copr)
+  release(repo, copr, "")
   puts "Updated #{repo}"
   return halt 200, "Updated #{repo}"
 end
@@ -202,9 +216,9 @@ def tag_tree(name)
   Dir.chdir(curdir)
 end
 
-def release(name, copr)
+def release(name, copr, params)
   curdir = Dir.pwd
   Dir.chdir(name)
-  return halt 500, "Can't start the copr build of #{name} in #{copr}" unless system("tito release copr --offline")
+  return halt 500, "Can't start the copr build of #{name} in #{copr}" unless system("tito release copr --offline #{params}")
   Dir.chdir(curdir)
 end
