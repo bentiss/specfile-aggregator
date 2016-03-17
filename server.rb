@@ -120,17 +120,13 @@ configure do
   set :bind, '0.0.0.0'
 end
 
-get "/#{token}" do
+get "/#{token}/:name" do
   Dir.chdir(server_dir)
-  repo = "libratbag-spec"
-  html_url = "https://github.com/bentiss/libratbag-spec.git"
+  repo = params['name']
   puts "Received a push notification for: #{repo}"
   project = get_db_entry(repo, upstream_db_filename)
   copr = project['copr']
   url = project['url']
-  if url != html_url
-    return halt 500, "Project '#{html_url}' is not valid"
-  end
   sync_repo(repo, project)
   update_tar_gz(repo)
   tag_tree(repo)
