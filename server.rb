@@ -196,18 +196,33 @@ def is_spec_tree(name)
   return Dir["#{name}/*.spec"] != []
 end
 
+def get_spec_tree(name)
+  return "#{name}-continuous-spec"
+end
+
 def clone(key, name, project)
   curdir = Dir.pwd
   `ssh-agent bash -c 'ssh-add #{key} ; git clone #{project['url']} #{name}'`
   return halt 500, "unable to clone #{name}, check the access rights.\nSsh key used: '#{File.read("#{key}.pub").strip}'\n" unless Dir.exist?(name)
   if is_spec_tree(name)
-    Dir.chdir(name)
-    `git checkout -b copr`
-    `git branch --set-upstream-to=origin/master copr`
-    `tito init`
-    tito_fill_releaser(project['copr'])
-    Dir.chdir(curdir)
+    init_spec_tree(name, project)
+  else
+    `ssh-agent bash -c 'ssh-add #{key} ; git clone #{project['spec']} #{get_spec_tree(name)}'`
+    init_spec_tree(get_spec_tree(name), project)
   end
+end
+
+def init_spec_tree(name, project)
+  if !is_spec_tree(name)
+    return
+  end
+  curdir = Dir.pwd
+  Dir.chdir(name)
+  `git checkout -b copr`
+  `git branch --set-upstream-to=origin/master copr`
+  `tito init`
+  tito_fill_releaser(project['copr'])
+  Dir.chdir(curdir)
 end
 
 def tito_fill_releaser(copr)
@@ -223,8 +238,12 @@ end
 def pull(key, name)
   curdir = Dir.pwd
   Dir.chdir(name)
+  `git reset --hard`
   `ssh-agent bash -c 'ssh-add #{key} ; git pull'`
   Dir.chdir(curdir)
+  if !is_spec_tree(name)
+    return pull(key, get_spec_tree(name))
+  end
 end
 
 def push(name)
@@ -238,24 +257,63 @@ end
 def update_tar_gz(name)
   curdir = Dir.pwd
   Dir.chdir(name)
-  `spectool -g *.spec`
+  if is_spec_tree(".")
+    `spectool -g *.spec`
+  else
+    describe = `git describe`.strip
+    m = /([0-9]*(\.[0-9]*)+)-?(.*)?/.match(describe)
+    version = m[0]
+    tag = m[1]
+    tar_gz = "#{name}-#{version}.tar.gz"
+    puts(tar_gz)
+    `git archive HEAD -o ../#{get_spec_tree(name)}/#{tar_gz} --prefix=#{name}-#{tag}/`
+    File.open("../#{get_spec_tree(name)}/commitid", "w") { |file|
+      file.puts(version)
+    }
+  end
   Dir.chdir(curdir)
 end
 
 def tag_tree(name)
   curdir = Dir.pwd
-  Dir.chdir(name)
+  if is_spec_tree(name)
+    Dir.chdir(name)
+  else
+    Dir.chdir(get_spec_tree(name))
+    version_release = File.read("commitid").strip
+    m = /([0-9]*(\.[0-9]*)+)-?(.*)?/.match(version_release)
+    version = m[1]
+    release = m[3].gsub(/\-/, ".")
+
+    specfile = Dir["*.spec"][0]
+    content = File.read(specfile)
+    new_content = content.gsub(/Version:(.*)/, "Version: #{version}")
+    if release != ""
+      new_content = new_content.gsub(/Release:(.*)/, "Release: #{release}.1%{?dist}")
+    else
+      new_content = new_content.gsub(/Release:(.*)/, "Release: 1%{?dist}")
+    end
+    # FIXME: support when the tgz is not Source0
+    new_content = new_content.gsub(/Source0:(.*)/, "Source0: #{name}-#{version_release}.tar.gz")
+
+    # Write back the changes
+    File.open(specfile, "w") {|file| file.puts new_content }
+  end
   return halt 200, "already tagged, skipping\n" unless system("tito tag --keep-version --no-auto-changelog")
-  # fix the messed up changelog entry
+  # revert any specfile changes
   specfile = Dir["*.spec"][0]
   `git show HEAD~1:#{specfile} > #{specfile}`
-  `git commit -a -m "fix the messed up tito changelog entry"`
+  `git commit -a -m "revert the specfile"`
   Dir.chdir(curdir)
 end
 
 def release(name, copr, params)
   curdir = Dir.pwd
-  Dir.chdir(name)
+  if is_spec_tree(name)
+    Dir.chdir(name)
+  else
+    Dir.chdir(get_spec_tree(name))
+  end
   return halt 500, "Can't start the copr build of #{name} in #{copr}" unless system("tito release copr --offline #{params}")
   Dir.chdir(curdir)
 end
