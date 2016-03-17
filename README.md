@@ -15,6 +15,5 @@ Requirements:
 
 - tito
 - git
-- git annex
 - ruby
 - rubygems (with sinatra as a gem)
