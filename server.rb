@@ -220,9 +220,18 @@ def init_spec_tree(name, project)
   Dir.chdir(name)
   `git checkout -b copr`
   `git branch --set-upstream-to=origin/master copr`
+  `git annex init`
   `tito init`
+  tito_switch_to_git_annex()
   tito_fill_releaser(project['copr'])
   Dir.chdir(curdir)
+end
+
+def tito_switch_to_git_annex()
+  text = File.read(".tito/tito.props")
+  new_contents = text.gsub(/tito\.builder\.Builder/, "tito.builder.GitAnnexBuilder")
+  File.open(".tito/tito.props", "w") {|file| file.puts new_contents }
+  `git commit -a -m "switch tito to use git annex"`
 end
 
 def tito_fill_releaser(copr)
@@ -258,7 +267,14 @@ def update_tar_gz(name)
   curdir = Dir.pwd
   Dir.chdir(name)
   if is_spec_tree(".")
-    `spectool -g *.spec`
+    `spectool -l *.spec`.split('\n').each do |source|
+      n, url = source.split()
+      if !File.exist?(File.basename(url))
+        puts "downloading #{url}"
+        `git annex addurl --file=#{File.basename(url)} #{url}`
+        `git commit -a -m "Add #{url}"`
+      end
+    end
   else
     describe = `git describe`.strip
     m = /([0-9]*(\.[0-9]*)+)-?(.*)?/.match(describe)
@@ -269,6 +285,9 @@ def update_tar_gz(name)
     `git archive HEAD -o ../#{get_spec_tree(name)}/#{tar_gz} --prefix=#{name}-#{tag}/`
     File.open("../#{get_spec_tree(name)}/commitid", "w") { |file|
       file.puts(version)
+    Dir.chdir("../#{get_spec_tree(name)}")
+    `git annex add #{tar_gz}`
+    `git commit -a -m "Add #{tar_gz}"`
     }
   end
   Dir.chdir(curdir)
